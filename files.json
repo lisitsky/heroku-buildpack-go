@@ -221,5 +221,9 @@
     "migrate-v3.0.0-linux-amd64.tar.gz": {
         "URL": "https://github.com/mattes/migrate/releases/download/v3.0.0/migrate.linux-amd64.tar.gz",
         "SHA": "13fbabe2db0ee3f79611c8171b0596939a3f384025f62925ed136267681e4fbf"
+    },
+    "tq-v0.1.tar.gz": {
+        "URL": "https://github.com/heroku/tq/archive/v0.1.tar.gz",
+        "SHA": "7e60f614f16f7669292fb719bd1ad1375d013304b02e16a591dfced0c32070a2"
     }
 }
