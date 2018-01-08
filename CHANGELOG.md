@@ -2,6 +2,43 @@
 
 ## Unreleased
 
+## v78 (2017-10-26)
+
+* Add go1.9.2 and go1.8.5 and default go1.9/go1.8 to them.
+
+## v77 (2017-10-17)
+
+* Add support for Git credentials specified via config vars. See https://github.com/heroku/heroku-buildpack-go#private-git-repos for more info. So far this has only been tested with Github and personal access tokens over https, but should work for other methods as well.
+* Tests now use a local file:// URL for most dependencies. This enables offline mode for most tests and makes it easier to test local changes before syncing the production bucket.
+* Tests now better us shunit2 setup/teardown, instead of not cleaning up after themselves.
+* Run tests against both the older heroku/cedar:14 image and the new heroku/heroku:16-build image.
+* Because of the three changes above, tests are now faster.
+* Allow `go1.X.0` versions that expand to `go1.X`, effectively pinning the minor version to the first version in the X series.
+
+## v76 (2017-10-06)
+
+* Actually make go1.9.1 supported
+* Actually make go1.8.4 supported
+
+## v75 (2017-10-05)
+
+* Preliminary [dep](https://github.com/golang/dep) support.
+* Update tq to v0.5
+* Add tq and dep to s3 to ease dep integration.
+* Update go to 1.9.1 & 1.8.4 & default to them - https://groups.google.com/forum/#!msg/golang-nuts/sHfMg4gZNps/a-HDgDDDAAAJ
+
+## v74 (2017-09-14)
+
+* Promote go1.9 to supported.
+
+## v73 (2017-08-25)
+
+* Add go1.9 and default go1.9 to it.
+
+## v72 (2017-08-09)
+
+Add go1.9rc2 and default go1.9 to it.
+
 ## v71 (2017-07-25)
 
 Add go1.9rc1 and default go1.9 to it.

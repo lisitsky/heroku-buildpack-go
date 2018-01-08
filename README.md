@@ -1,6 +1,6 @@
-[![travis ci](https://travis-ci.org/heroku/heroku-buildpack-go.svg?branch=master)](https://travis-ci.org/heroku/heroku-buildpack-go)
-
 # Heroku Buildpack for Go
+
+[![travis ci](https://travis-ci.org/heroku/heroku-buildpack-go.svg?branch=master)](https://travis-ci.org/heroku/heroku-buildpack-go)
 
 ![Heroku Buildpack for Go](https://cloud.githubusercontent.com/assets/51578/15877053/53506724-2cdf-11e6-878c-e2ef60ba741f.png)
 
@@ -16,7 +16,7 @@ There's also a hello world sample app at
 
 ## Example
 
-```
+```console
 $ ls -A1
 .git
 vendor
@@ -30,7 +30,7 @@ Creating polar-waters-4785...
 $ git push heroku master
 ...
 -----> Go app detected
------> Installing go1.8... done
+-----> Installing go1.9... done
 -----> Running: go install -tags heroku ./...
 -----> Discovering process types
        Procfile declares types -> web
@@ -42,6 +42,7 @@ $ git push heroku master
 
 This buildpack will detect your repository as Go if you are using either:
 
+- [dep][dep]
 - [govendor][govendor]
 - [glide][glide]
 - [GB][gb]
@@ -49,7 +50,49 @@ This buildpack will detect your repository as Go if you are using either:
 
 This buildpack adds a `heroku` [build constraint][build-constraint], to enable
 heroku-specific code. See the [App Engine build constraints
-article][app-engine-build-constraints] for more.
+article][app-engine-build-constraints] for more info.
+
+## dep specifics
+
+The `Gopkg.toml` file allows for arbitrary, tool specific fields. This buildpack
+utilizes this feature to track build specific configuration which are encoded in
+the following way:
+
+- `metadata.heroku['root-package']` (String): the root package name of the
+  packages you are pushing to Heroku.You can find this locally with `go list -e
+  .`. There is no default for this and it must be specified.
+
+- `metadata.heroku['go-version']` (String): the major version of go you would
+  like Heroku to use when compiling your code: if not specified defaults to the
+  most recent supported version of Go.
+
+- `metadata.heroku['install']` (Array of Strings): a list of the packages you
+  want to install. If not specified, this defaults to `["."]`. Other common
+  choices are: `["./cmd/..."]` (all packages and sub packages in the `cmd`
+  directory) and `["./..."]` (all packages and sub packages of the current
+  directory). The exact choice depends on the layout of your repository though.
+  Please note that `./...`, for versions of go < 1.9, includes any packages in
+  your `vendor` directory.
+
+- `metadata.heroku['ensure']` (String): if this is set to `false` then `dep
+  ensure` is not run.
+
+- `metadata.heroku['additional-tools']` (Array of Strings): a list of additional
+  tools that the buildpack is aware of that you want it to install. If the tool
+  has multiple versions an optional `@<version>` suffix can be specified to
+  select that specific version of the tool. Otherwise the buildpack's default
+  version is chosen. Currently the only supported tool is
+  `github.com/mattes/migrate` at `v3.0.0` (also the default version).
+
+```toml
+[metadata.heroku]
+  root-package = "github.com/heroku/fixture"
+  go-version = "go1.8.3"
+  install = [ "./cmd/...", "./foo" ]
+  ensure = "false"
+  additional-tools = ["github.com/mattes/migrate"]
+...
+```
 
 ## govendor specifics
 
@@ -58,32 +101,32 @@ file allows for arbitrary, tool specific fields. This buildpack uses this
 feature to track build specific bits. These bits are encoded in the following
 top level json keys:
 
-* `rootPath` (String): the root package name of the packages you are pushing to
+- `rootPath` (String): the root package name of the packages you are pushing to
   Heroku. You can find this locally with `go list -e .`. There is no default for
   this and it must be specified. Recent versions of govendor automatically fill
   in this field for you. You can re-run `govendor init` after upgrading to have
   this field filled in automatically, or it will be filled the next time you use
    govendor to modify a dependency.
 
-* `heroku.goVersion` (String): the major version of go you would like Heroku to
+- `heroku.goVersion` (String): the major version of go you would like Heroku to
   use when compiling your code: if not specified defaults to the most recent
   supported version of Go.
 
-* `heroku.install` (Array of Strings): a list of the packages you want to install.
+- `heroku.install` (Array of Strings): a list of the packages you want to install.
   If not specified, this defaults to `["."]`. Other common choices are:
   `["./cmd/..."]` (all packages and sub packages in the `cmd` directory) and
   `["./..."]` (all packages and sub packages of the current directory). The exact
    choice depends on the layout of your repository though. Please note that `./...`
    includes any packages in your `vendor` directory.
 
-* `heroku.additionalTools` (Array of Strings): a list of additional tools that
+- `heroku.additionalTools` (Array of Strings): a list of additional tools that
   the buildpack is aware of that you want it to install. If the tool has
   multiple versions an optional `@<version>` suffix can be specified to select
   that specific version of the tool. Otherwise the buildpack's default version
   is chosen. Currently the only supported tool is `github.com/mattes/migrate` at
   `v3.0.0` (also the default version).
 
-Example with everything, for a project using `go1.8`, located at
+Example with everything, for a project using `go1.9`, located at
 `$GOPATH/src/github.com/heroku/go-getting-started` and requiring a single package
 spec of `./...` to install.
 
@@ -93,7 +136,7 @@ spec of `./...` to install.
     "rootPath": "github.com/heroku/go-getting-started",
     "heroku": {
         "install" : [ "./..." ],
-        "goVersion": "go1.8"
+        "goVersion": "go1.9"
          },
     ...
 }
@@ -117,8 +160,8 @@ latest released minor version in that series. Setting `$GOVERSION` to a specific
 minor Go version will pin Go to that version. Examples:
 
 ```console
-$ heroku config:set GOVERSION=go1.8   # Will use go1.8.X, Where X is that latest minor release in the 1.8 series
-$ heroku config:set GOVERSION=go1.7.5 # Pins to go1.7.5
+heroku config:set GOVERSION=go1.9   # Will use go1.9.X, Where X is that latest minor release in the 1.9 series
+heroku config:set GOVERSION=go1.7.5 # Pins to go1.7.5
 ```
 
 `glide install` will be run to ensure that all dependencies are properly
@@ -126,8 +169,8 @@ installed. If you need the buildpack to skip the `glide install` you can set
 `$GLIDE_SKIP_INSTALL` to `true`. Example:
 
 ```console
-$ heroku config:set GLIDE_SKIP_INSTALL=true
-$ git push heroku master
+heroku config:set GLIDE_SKIP_INSTALL=true
+git push heroku master
 ```
 
 Installation defaults to `.`. This can be overridden by setting the
@@ -135,8 +178,8 @@ Installation defaults to `.`. This can be overridden by setting the
 go tool chain to install. Example:
 
 ```console
-$ heroku config:set GO_INSTALL_PACKAGE_SPEC=./...
-$ git push heroku master
+heroku config:set GO_INSTALL_PACKAGE_SPEC=./...
+git push heroku master
 ```
 
 ## Usage with other vendoring systems
@@ -154,6 +197,20 @@ with the following contents, adjusted as needed for your project's root path.
 }
 ```
 
+## Private Git Repos
+
+The buildpack installs a custom git credential handler. Any tool that shells out to git (most do) should be able to transparently use this feature. Note: It has only been tested with Github repos over https using personal access tokens.
+
+The custom git credential handler searches the application's config vars for vars that follow the following pattern: `GO_GIT_CRED__<PROTOCOL>__<HOSTNAME>`. Any periods (`.`) in the `HOSTNAME` must be replaces with double underscores (`__`).
+
+The value of a matching var will be used as the username. If the value contains a ":", the value will be split on the ":" and the left side will be used as the username and the right side used as the password. When no password is present, `x-oauth-basic` is used.
+
+The following example will cause git to use the `FakePersonalAccessTokenHere` as the username when authenticating to `github.com` via `https`:
+
+```console
+$ heroku config:set GO_GIT_CRED__HTTPS__GITHUB__COM=FakePersoalAccessTokenHere
+```
+
 ## Hacking on this Buildpack
 
 To change this buildpack, fork it on GitHub & push changes to your fork. Ensure
@@ -165,7 +222,7 @@ that tests have been added to the `test/run` script and any corresponding fixtur
 Requires docker.
 
 ```console
-$ make test
+make test
 ```
 
 ## Using with cgo
@@ -209,11 +266,10 @@ into the compiled executable.
 
 This buildpack also supports the testpack API.
 
-
 ## Deploying
 
 ```console
-$ make publish # && follow the prompts
+make publish # && follow the prompts
 ```
 
 ### New Go version
@@ -230,6 +286,7 @@ $ make publish # && follow the prompts
 [go]: http://golang.org/
 [buildpack]: http://devcenter.heroku.com/articles/buildpacks
 [go-linker]: https://golang.org/cmd/ld/
+[dep]: https://github.com/golang/dep
 [godep]: https://github.com/tools/godep
 [govendor]: https://github.com/kardianos/govendor
 [gb]: https://getgb.io/

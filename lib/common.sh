@@ -10,6 +10,7 @@ fi
 
 DataJSON="${buildpack}/data.json"
 FilesJSON="${buildpack}/files.json"
+depTOML="${build}/Gopkg.toml"
 godepsJSON="${build}/Godeps/Godeps.json"
 vendorJSON="${build}/vendor/vendor.json"
 glideYAML="${build}/glide.yaml"
@@ -20,7 +21,11 @@ RED='\033[1;31m'
 NC='\033[0m' # No Color
 CURL="curl -s -L --retry 15 --retry-delay 2" # retry for up to 30 seconds
 
-BucketURL="https://heroku-golang-prod.s3.amazonaws.com"
+if [ -z "${GO_BUCKET_URL}" ]; then
+    BucketURL="https://heroku-golang-prod.s3.amazonaws.com"
+else
+    BucketURL="${GO_BUCKET_URL}"
+fi
 
 TOOL=""
 # Default to $SOURCE_VERSION environment variable: https://devcenter.heroku.com/articles/buildpack-api#bin-compile
@@ -158,6 +163,73 @@ loadEnvDir() {
     fi
 }
 
+clearGitCredHelper() {
+    git config --global --unset credential.helper
+}
+
+setGitCredHelper() {
+    git config --global credential.helper '!#GoGitCredHelper
+    env_dir="'$(cd ${1}/ && pwd)'"
+    gitCredHelper() {
+    #echo "${1}\n" >&2 #debug
+    case "${1}" in
+        setup|erase) # Read only, so ignore
+        ;;
+        get)
+            local protocol=""
+            local host=""
+            local username=""
+            local password=""
+            local key=""
+            local value=""
+            while read LINE; do
+                key=$(echo $LINE | cut -d = -f 1)
+                value=$(echo $LINE | cut -d = -f 2)
+                case "${key}" in
+                    protocol)
+                        protocol="$(echo ${value} | sed -e "s/.*/\U&/")"
+                    ;;
+                    host)
+                        host="$(echo ${value} | sed -e "s/\./__/" -e "s/.*/\U&/")"
+                    ;;
+                    username)
+                        username="${value}"
+                    ;;
+                    password)
+                        password="${value}"
+                    ;;
+                    *)
+                        echo "Unsupported key: ${key}=${value}" >&2
+                        exit 1
+                    ;;
+                esac
+                #echo LINE=$LINE >&2    #debug
+                #echo key=$key >&2      #debug
+                #echo value=$value >&2  #debug
+            done
+            local f="${env_dir}/GO_GIT_CRED__${protocol}__${host}"
+            #echo f=${f} >&2  #debug
+            #echo >&2         #debug
+            if [ -f "${f}" ]; then
+                echo "Using credentials from GO_GIT_CRED__${protocol}__${host}" >&2
+                t=$(cat ${f})
+                if [ "${t}" =~ ":" ]; then
+                    username="$(echo $t | cut -d : -f 1)"
+                    password="$(echo $t | cut -d : -f 2)"
+                else
+                    username="${t}"
+                    password="x-oauth-basic"
+                fi
+                echo username=${username}
+                #echo username=${username} >&2  #debug
+                echo password=${password}
+                #echo password=${password} >&2  #debug
+            fi
+        ;;
+    esac
+}; gitCredHelper'
+}
+
 setGoVersionFromEnvironment() {
     if [ -z "${GOVERSION}" ]; then
         warn ""
@@ -171,7 +243,29 @@ setGoVersionFromEnvironment() {
 }
 
 determineTool() {
-    if [ -f "${godepsJSON}" ]; then
+    if [ -f "${depTOML}" ]; then
+        TOOL="dep"
+        ensureInPath "tq-${TQVersion}-linux-amd64" "${cache}/.tq/bin"
+        name=$(<${depTOML} tq '$.metadata.heroku["root-package"]')
+        if [ -z "${name}" ]; then
+            err "The 'metadata.heroku[\"root-package\"]' field is not specified in 'Gopkg.toml'."
+            err "root-package must be set to the root pacakage name used by your repository."
+            err ""
+            err "For more details see: https://devcenter.heroku.com/articles/go-apps-with-dep#build-configuration"
+            exit 1
+        fi
+        ver=${GOVERSION:-$(<${depTOML} tq '$.metadata.heroku["go-version"]')}
+        warnGoVersionOverride
+        if [ -z "${ver}" ]; then
+            ver=${DefaultGoVersion}
+            warn "The 'metadata.heroku[\"go-version\"]' field is not specified in 'Gopkg.toml'."
+            warn ""
+            warn "Defaulting to ${ver}"
+            warn ""
+            warn "For more details see: https://devcenter.heroku.com/articles/go-apps-with-dep#build-configuration"
+            warn ""
+        fi
+    elif [ -f "${godepsJSON}" ]; then
         TOOL="godep"
         step "Checking Godeps/Godeps.json file."
         if ! jq -r . < "${godepsJSON}" > /dev/null; then
@@ -216,7 +310,7 @@ determineTool() {
         TOOL="gb"
         setGoVersionFromEnvironment
     else
-        err "Godep, GB or govendor are required. For instructions:"
+        err "dep, Godep, GB or govendor are required. For instructions:"
         err "https://devcenter.heroku.com/articles/go-support"
         exit 1
     fi
